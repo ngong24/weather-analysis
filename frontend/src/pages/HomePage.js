@@ -9,8 +9,7 @@ import L from 'leaflet';
 import { 
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
-import AiAssistant from '../components/AiAssistant'; 
-import SearchBar from '../components/SearchBar';
+import AiAssistant from '../components/AiAssistant';
 
 // --- setup leaflet---
 delete L.Icon.Default.prototype._getIconUrl;
@@ -26,11 +25,29 @@ function ChangeView({ center }) {
     return null;
 }
 
+// --- FIXED HANOI COORDINATES ---
+const HANOI_LAT = 21.0285;
+const HANOI_LON = 105.8542;
+const HANOI_NAME = "Hanoi";
+const HANOI_COUNTRY = "Vietnam";
+
 // --- helper functions ---
 const getWeatherStatus = (code) => {
-    if (code === undefined) return ""; if (code === 0) return "Clear sky"; if (code <= 3) return "Partly cloudy"; if (code <= 48) return "Fog"; if (code <= 67) return "Rain"; if (code >= 95) return "Thunderstorm"; return "Rain";
+    if (code === undefined) return ""; 
+    if (code === 0) return "Clear sky"; 
+    if (code <= 3) return "Partly cloudy"; 
+    if (code <= 48) return "Fog"; 
+    if (code <= 67) return "Rain"; 
+    if (code >= 95) return "Thunderstorm"; 
+    return "Rain";
 };
-const formatDate = (dateStr) => { if(!dateStr) return ""; const [y,m,d] = dateStr.split("-"); return `${d}/${m}`; };
+
+const formatDate = (dateStr) => { 
+    if(!dateStr) return ""; 
+    const [y,m,d] = dateStr.split("-"); 
+    return `${d}/${m}`; 
+};
+
 const getWeatherIcon = (code) => {
     if (code === 0) return "https://cdn-icons-png.flaticon.com/512/869/869869.png"; 
     if (code <= 3) return "https://cdn-icons-png.flaticon.com/512/1163/1163661.png";
@@ -66,7 +83,6 @@ const CustomXAxisTick = ({ x, y, payload }) => {
     );
 };
 
-
 // --- Custom Tooltip ---
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -98,8 +114,6 @@ const styles = `
     
     .dashboard-container { 
         min-height: 100vh; 
-        
-        /* Gradient nền: Cam nhạt ở đầu -> Xanh nhạt ở dưới */
         background: linear-gradient(
             180deg, 
             #fff7e6 0%,      
@@ -107,7 +121,6 @@ const styles = `
             #d4ebf2 450px,   
             #d4ebf2 100%     
         );
-
         color: #333; 
         padding: 30px; 
         display: flex; 
@@ -117,13 +130,39 @@ const styles = `
     }
     
     /* Header */
-    .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .search-wrap { flex: 1; max-width: 500px; }
+    .dashboard-header { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        margin-bottom: 10px; 
+    }
     
-    .search-bar { display: flex; align-items: center; background: rgba(255,255,255,0.7); padding: 10px 20px; border-radius: 30px; backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: 0.3s; }
-    .search-bar:focus-within { background: rgba(255,255,255,1); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-    .search-bar input { background: transparent; border: none; color: #333; width: 100%; outline: none; margin-left: 10px; font-size: 16px; font-weight: 300; }
-    .search-bar button { background: transparent; border: none; cursor: pointer; font-size: 18px; color: #555; }
+    .location-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: rgba(255,255,255,0.8);
+        padding: 12px 24px;
+        border-radius: 30px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    .location-icon {
+        font-size: 24px;
+    }
+    
+    .location-text h2 {
+        font-size: 22px;
+        font-weight: 500;
+        color: #333;
+        margin: 0;
+    }
+    
+    .location-text p {
+        font-size: 13px;
+        color: #666;
+        margin: 0;
+    }
 
     .auth-section { display: flex; gap: 15px; align-items: center; }
 
@@ -148,7 +187,7 @@ const styles = `
     .btn-green:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(255, 216, 181, 0.8);
-        background: #FFC590; /* Đậm hơn chút khi hover */
+        background: #FFC590;
     }
 
     /* --- LAYOUT --- */
@@ -157,7 +196,18 @@ const styles = `
     .right-column { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 
     /* CARD STYLES */
-    .weather-main-card { background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(245,245,245,0.9)); border-radius: 25px; padding: 30px; display: flex; flex-direction: column; justify-content: space-between; min-height: 350px; box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1); color: #333; border: 1px solid rgba(255,255,255,1); }
+    .weather-main-card { 
+        background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(245,245,245,0.9)); 
+        border-radius: 25px; 
+        padding: 30px; 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: space-between; 
+        min-height: 350px; 
+        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1); 
+        color: #333; 
+        border: 1px solid rgba(255,255,255,1); 
+    }
     .weather-header { display: flex; justify-content: space-between; }
     
     .temp-section { display: flex; align-items: center; margin: 20px 0; }
@@ -206,18 +256,16 @@ const styles = `
 
 const HomePage = () => {
     const { user, logoutUser } = useContext(AuthContext);
-    const [citySearch, setCitySearch] = useState('');
     const [weatherData, setWeatherData] = useState(null);
     const [favorites, setFavorites] = useState([]);
-    const [mapCenter, setMapCenter] = useState([21.02, 105.85]); 
-    const [loading, setLoading] = useState(false);
+    const [mapCenter] = useState([HANOI_LAT, HANOI_LON]); // Fixed Hanoi
     const [selectedDate, setSelectedDate] = useState(null);
+    const [loading, setLoading] = useState(true);
 
+    // Fetch weather for Hanoi on mount
     useEffect(() => {
+        getWeatherForHanoi();
         if (user) fetchFavorites();
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(p => getWeatherByCoords(p.coords.latitude, p.coords.longitude));
-        }
     }, [user]);
 
     useEffect(() => {
@@ -240,45 +288,63 @@ const HomePage = () => {
             }));
             setFavorites(listWithTemp);
         } catch (error) {
-            console.error("Error fetching list:", error);
+            console.error("Error fetching favorites:", error);
         }
     };
 
-    const handleSearch = async (e) => {
-        e.preventDefault(); setLoading(true);
+    const getWeatherForHanoi = async () => {
+        setLoading(true);
         try {
-            const resGeo = await api.get(`search-city/?city=${citySearch}`);
-            if (resGeo.data.length > 0) getWeatherByCoords(resGeo.data[0].latitude, resGeo.data[0].longitude, resGeo.data[0].name, resGeo.data[0].country);
-            else alert("No results found!");
-        } catch { alert("Something went wrong!"); } setLoading(false);
-    };
-
-    const getWeatherByCoords = async (lat, lon, name="Your location", country="") => {
-        try {
-            const res = await api.get(`weather/?lat=${lat}&lon=${lon}`);
-            setWeatherData({ ...res.data, city_name: name, country: country, lat: lat, lon: lon });
-            setMapCenter([lat, lon]);
-        } catch { console.error("Err"); }
+            const res = await api.get(`weather/?lat=${HANOI_LAT}&lon=${HANOI_LON}`);
+            setWeatherData({ 
+                ...res.data, 
+                city_name: HANOI_NAME, 
+                country: HANOI_COUNTRY, 
+                lat: HANOI_LAT, 
+                lon: HANOI_LON 
+            });
+        } catch (error) {
+            console.error("Error fetching weather:", error);
+        } finally {
+            setLoading(false);
+        }
     };
     
     const addToFavorites = async () => {
-        if (!user) { alert("Login required to save!"); return; }
+        if (!user) { 
+            alert("Login required to save!"); 
+            return; 
+        }
         if (!weatherData) return;
-        const payload = { city_name: weatherData.city_name, latitude: weatherData.lat, longitude: weatherData.lon };
+        
+        const payload = { 
+            city_name: HANOI_NAME, 
+            latitude: HANOI_LAT, 
+            longitude: HANOI_LON 
+        };
+        
         try {
             await api.post('favorites/', payload);
-            alert(`Save "${weatherData.city_name}" success!`);
+            alert(`Saved "${HANOI_NAME}" successfully!`);
             fetchFavorites(); 
         } catch (error) {
-            if (error.response && error.response.status === 400) alert("This location might already be in your list!");
-            else alert("Failed to save. Please try again.");
+            if (error.response && error.response.status === 400) {
+                alert("Hanoi is already in your favorites!");
+            } else {
+                alert("Failed to save. Please try again.");
+            }
         }
     };
 
     const removeFavorite = async (id, e) => { 
         e.stopPropagation(); 
         if(!window.confirm("Are you sure you want to delete this location?")) return; 
-        try{ await api.delete(`favorites/${id}/`); fetchFavorites(); } catch { alert("Failed to delete!"); } 
+        try { 
+            await api.delete(`favorites/${id}/`); 
+            fetchFavorites(); 
+        } catch { 
+            alert("Failed to delete!"); 
+        } 
     };
 
     const getHourlyContinuous = () => {
@@ -290,13 +356,29 @@ const HomePage = () => {
     
     const hourlyDisplay = getHourlyContinuous();
 
+    if (loading) {
+        return (
+            <div className="dashboard-container">
+                <style>{styles}</style>
+                <div style={{textAlign:'center', marginTop: 80, opacity: 0.6, color: '#555'}}>
+                    <h2>Loading weather data for Hanoi...</h2>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="dashboard-container">
             <style>{styles}</style>
             <header className="dashboard-header">
-                <div className="search-wrap">
-                    <SearchBar onSelectLocation={(loc) => getWeatherByCoords(loc.latitude, loc.longitude, loc.name, loc.country)} user={user} />
+                <div className="location-info">
+                    <span className="location-icon">📍</span>
+                    <div className="location-text">
+                        <h2>Hanoi, Vietnam</h2>
+                        <p>Fixed Location</p>
+                    </div>
                 </div>
+                
                 <div className="auth-section">
                     {user ? (
                         <>
@@ -306,7 +388,7 @@ const HomePage = () => {
                     ) : (
                         <>
                             <Link to="/login" className="btn-green" style={{marginRight: 10}}>Login</Link>
-                            <Link to="/register" className="btn-green">Reg</Link>
+                            <Link to="/register" className="btn-green">Register</Link>
                         </>
                     )}
                 </div>
@@ -317,26 +399,43 @@ const HomePage = () => {
                     <div className="left-column">
                         <div className="weather-main-card">
                             <div className="weather-header">
-                                <div><h2 style={{fontWeight:'400'}}>{weatherData.city_name}</h2><p style={{color:'#666', marginTop: 5, fontWeight:'300'}}>{weatherData.country}</p></div>
-                                <button onClick={addToFavorites} className="btn-green">Save</button>
+                                <div>
+                                    <h2 style={{fontWeight:'400'}}>{weatherData.city_name}</h2>
+                                    <p style={{color:'#666', marginTop: 5, fontWeight:'300'}}>{weatherData.country}</p>
+                                </div>
+                                {user && <button onClick={addToFavorites} className="btn-green">Save</button>}
                             </div>
                             <div className="temp-section">
                                 <img src={getWeatherIcon(weatherData.current.weathercode)} width="100" alt="icon"/>
                                 <div className="temp-details">
                                     <span className="temp-number">{weatherData.current.temperature}°</span>
-                                    <div style={{fontSize:'22px', fontWeight: '300', color: '#555'}}>{getWeatherStatus(weatherData.current.weathercode)}</div>
+                                    <div style={{fontSize:'22px', fontWeight: '300', color: '#555'}}>
+                                        {getWeatherStatus(weatherData.current.weathercode)}
+                                    </div>
                                 </div>
                             </div>
                             <div className="metrics-row">
-                                <div className="metric-item"><div>Wind</div><div className="metric-value">{weatherData.current.windspeed} km/h</div></div>
-                                <div className="metric-item"><div>Humidity</div><div className="metric-value">{weatherData.current.humidity}%</div></div>
-                                <div className="metric-item"><div>Pressure</div><div className="metric-value">{weatherData.current.pressure} hPa</div></div>
-                                <div className="metric-item"><div>Rain</div><div className="metric-value">{weatherData.current.precipitation} mm</div></div>
+                                <div className="metric-item">
+                                    <div>Wind</div>
+                                    <div className="metric-value">{weatherData.current.windspeed} km/h</div>
+                                </div>
+                                <div className="metric-item">
+                                    <div>Humidity</div>
+                                    <div className="metric-value">{weatherData.current.humidity}%</div>
+                                </div>
+                                <div className="metric-item">
+                                    <div>Pressure</div>
+                                    <div className="metric-value">{weatherData.current.pressure} hPa</div>
+                                </div>
+                                <div className="metric-item">
+                                    <div>Rain</div>
+                                    <div className="metric-value">{weatherData.current.precipitation} mm</div>
+                                </div>
                             </div>
                         </div>
 
                         <div className="forecast-section">
-                            <h3 style={{marginBottom:15, color:'#444', fontWeight: '400'}}>  Forecast 14 days </h3>
+                            <h3 style={{marginBottom:15, color:'#444', fontWeight: '400'}}>14-Day Forecast</h3>
                             <div className="forecast-row">
                                 {weatherData.forecast.map((day, index) => (
                                     <div 
@@ -356,7 +455,9 @@ const HomePage = () => {
                         {hourlyDisplay.length > 0 && (
                             <div className="hourly-section">
                                 <div className="hourly-header">
-                                    <h3 style={{color:'#444', fontWeight: '400'}}> Forecast 24 hours {formatDate(selectedDate)}</h3>
+                                    <h3 style={{color:'#444', fontWeight: '400'}}>
+                                        24-Hour Forecast - {formatDate(selectedDate)}
+                                    </h3>
                                 </div>
                                 <div style={{ width: '100%', height: '100%', fontSize: '12px' }}>
                                     <ResponsiveContainer width="100%" height="100%">
@@ -413,21 +514,25 @@ const HomePage = () => {
                             <MapContainer center={mapCenter} zoom={11} style={{ height: '100%', width: '100%' }} zoomControl={false}>
                                 <ChangeView center={mapCenter} />
                                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                <Marker position={mapCenter}><Popup>{weatherData.city_name}</Popup></Marker>
+                                <Marker position={mapCenter}>
+                                    <Popup>{HANOI_NAME}</Popup>
+                                </Marker>
                             </MapContainer>
                         </div>
                     </div>
                 </div>
             ) : (
-                <div style={{textAlign:'center', marginTop: 80, opacity: 0.6, color: '#555'}}><h2>Enter city name...</h2></div>
+                <div style={{textAlign:'center', marginTop: 80, opacity: 0.6, color: '#555'}}>
+                    <h2>Unable to load weather data</h2>
+                </div>
             )}
 
             {user && favorites.length > 0 && (
                 <div className="favorites-bar">
-                    <h4 style={{color:'#555', fontWeight:'400'}}>Saved ({favorites.length})</h4>
+                    <h4 style={{color:'#555', fontWeight:'400'}}>Saved Locations ({favorites.length})</h4>
                     <div className="fav-tags">
                         {favorites.map(fav => (
-                            <div key={fav.id} className="fav-tag" onClick={() => getWeatherByCoords(fav.latitude, fav.longitude, fav.city_name)}>
+                            <div key={fav.id} className="fav-tag">
                                 {fav.city_name} <b>{fav.current_temp ? fav.current_temp : '--'}°</b> 
                                 <span className="delete-x" onClick={(e)=>removeFavorite(fav.id,e)}>×</span>
                             </div>
@@ -437,9 +542,12 @@ const HomePage = () => {
             )}
 
             {weatherData && (
-                <AiAssistant lat={weatherData.lat} lon={weatherData.lon} city={weatherData.city_name} />
+                <AiAssistant 
+                    lat={HANOI_LAT} 
+                    lon={HANOI_LON} 
+                    city={HANOI_NAME} 
+                />
             )}
-
         </div>
     );
 };
