@@ -1,0 +1,40 @@
+{
+  "temperature": {
+    "r2": 0.8167070149354914,
+    "mae": 0.32637902978295164,
+    "rmse": 0.4179927263517459,
+    "cv_mae_mean": 0.33088367961896537,
+    "cv_rmse_mean": 0.41815607886465267,
+    "features": [
+      "pressure_msl",
+      "radiation",
+      "wind_y"
+    ],
+    "n_samples_train": 70099,
+    "n_samples_test": 17525
+  },
+  "humidity": {
+    "r2": 0.4104105806258298,
+    "mae": 0.6205184399985217,
+    "rmse": 0.7897880861059291,
+    "features": [
+      "radiation",
+      "w_51",
+      "w_53",
+      "w_61",
+      "w_63"
+    ]
+  },
+  "precipitation": {
+    "r2": 0.872975767234233,
+    "mae": 0.15559861661901525,
+    "rmse": 0.41923988423105807,
+    "features": [
+      "w_63",
+      "w_65",
+      "w_61"
+    ]
+  },
+  "training_date": "2025-12-26T11:17:00.199345",
+  "model_version": "v2.0-timeseries"
+}
