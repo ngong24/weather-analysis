@@ -1,9 +1,10 @@
 name: Weekly Weather Model Training
 
+# Kích hoạt workflow
 on:
   # Chạy mỗi Chủ nhật lúc 2:00 sáng (UTC)
   schedule:
-    - cron: '0 2 * * 0'
+    - cron: '0 2 * * 0'  # Mỗi 7 ngày vào 2AM UTC Chủ nhật
   
   # Cho phép chạy thủ công từ GitHub UI
   workflow_dispatch:
@@ -13,104 +14,146 @@ on:
         required: false
         default: '3650'
 
+# Quyền cần thiết
 permissions:
-  contents: write
+  contents: write  # Để push model mới lên repo
 
 jobs:
   train-and-deploy:
-    runs-on: ubuntu-latest  # Chạy trên Ubuntu 
+    runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository
+      # Bước 1: Checkout code
+      - name:  Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Lấy toàn bộ history để so sánh
       
-      - name: Set up Python
+      # Bước 2: Setup Python
+      - name:  Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
+          cache: 'pip'  # Cache dependencies
       
-      - name: Install dependencies
+      # Bước 3: Install dependencies
+      - name:  Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Collect weather data
+      # Bước 4: Thu thập dữ liệu
+      - name:  Collect weather data
         id: collect
         run: |
-          echo "Starting data collection..."
-          python scripts/collect_data.py ${{ github.event.inputs.days_back || '3650' }}
-          echo "status=success" >> $GITHUB_OUTPUT
-        continue-on-error: false
+          echo " Starting data collection..."
+          python scripts/collect_data.py ${{ github.event.inputs.days_back || 3650 }}
+          
+          if [ $? -eq 0 ]; then
+            echo " Data collection completed"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo " Data collection failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
       
-      - name: Preprocess data
+      # Bước 5: Tiền xử lý dữ liệu
+      - name:  Preprocess data
+        if: steps.collect.outputs.status == 'success'
         id: preprocess
         run: |
-          echo "Starting preprocessing..."
+          echo " Starting preprocessing..."
           python scripts/preprocessing.py
-          echo "status=success" >> $GITHUB_OUTPUT
-        continue-on-error: false
+          
+          if [ $? -eq 0 ]; then
+            echo " Preprocessing completed"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo " Preprocessing failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
       
-      - name: Train models
+      # Bước 6: Training model
+      - name:  Train models
+        if: steps.preprocess.outputs.status == 'success'
         id: train
         run: |
-          echo "Starting model training..."
+          echo " Starting model training..."
           python scripts/train_model.py
-          echo "status=success" >> $GITHUB_OUTPUT
-        continue-on-error: false
+          
+          if [ $? -eq 0 ]; then
+            echo " Training completed"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo " Training failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
       
+      # Bước 7: Đánh giá model
       - name: Evaluate model
+        if: steps.train.outputs.status == 'success'
         id: evaluate
         run: |
           echo "Starting model evaluation..."
           python scripts/evaluate_model.py 0.75 2.5
-          echo "status=pass" >> $GITHUB_OUTPUT
           
-          # Đọc metrics bằng Python (cross-platform)
-          python -c "
-import json
-with open('model/training_results.json') as f:
-    data = json.load(f)
-    r2 = data['temperature']['r2']
-    mae = data['temperature']['mae']
-    print(f'r2={r2}')
-    print(f'mae={mae}')
-with open('$GITHUB_OUTPUT', 'a') as f:
-    f.write(f'r2={r2}\n')
-    f.write(f'mae={mae}\n')
-"
-        continue-on-error: false
+          if [ $? -eq 0 ]; then
+            echo "Model meets requirements"
+            echo "status=pass" >> $GITHUB_OUTPUT
+            
+            # Đọc metrics
+            if [ -f model/training_results.json ]; then
+              r2=$(cat model/training_results.json | python -c "import sys, json; print(json.load(sys.stdin)['temperature']['r2'])")
+              mae=$(cat model/training_results.json | python -c "import sys, json; print(json.load(sys.stdin)['temperature']['mae'])")
+              echo "r2=$r2" >> $GITHUB_OUTPUT
+              echo "mae=$mae" >> $GITHUB_OUTPUT
+              echo " R² = $r2, MAE = $mae°C"
+            fi
+          else
+            echo " Model does not meet requirements"
+            echo "status=fail" >> $GITHUB_OUTPUT
+          fi
       
+      # Bước 8: Commit và push model mới (chỉ khi đạt yêu cầu)
       - name: Commit and push new model
         if: steps.evaluate.outputs.status == 'pass'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
+          # Add model files
           git add model/*.pkl model/*.json model/*.png
           
-          git diff --staged --quiet || git commit -m "Auto-update model (R²=${{ steps.evaluate.outputs.r2 }}, MAE=${{ steps.evaluate.outputs.mae }}°C)
-
-Training completed at $(date -u +"%Y-%m-%d %H:%M UTC")
-- Temperature R²: ${{ steps.evaluate.outputs.r2 }}
-- Temperature MAE: ${{ steps.evaluate.outputs.mae }}°C
-
-[skip ci]"
+          # Tạo commit message với metrics
+          COMMIT_MSG=" Auto-update model (R²=${{ steps.evaluate.outputs.r2 }}, MAE=${{ steps.evaluate.outputs.mae }}°C)
           
-          git push || echo "Nothing to push"
+          Training completed at $(date -u +"%Y-%m-%d %H:%M UTC")
+          - Temperature R²: ${{ steps.evaluate.outputs.r2 }}
+          - Temperature MAE: ${{ steps.evaluate.outputs.mae }}°C
+          
+          [skip ci]"
+          
+          git commit -m "$COMMIT_MSG" || echo "No changes to commit"
+          git push
+          
+          echo "Model deployed successfully!"
       
+      # Bước 9: Tạo GitHub Release (optional - để theo dõi versions)
       - name:  Create Release
         if: steps.evaluate.outputs.status == 'pass'
-        uses: softprops/action-gh-release@v1
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: model-v${{ github.run_number }}
-          name: Model Training v${{ github.run_number }}
+          release_name: Model Training v${{ github.run_number }}
           body: |
             ## Automated Model Training Results
             
-            **Training Date:** ${{ github.event.repository.updated_at }}
+            **Training Date:** $(date -u +"%Y-%m-%d %H:%M UTC")
             
             ### Performance Metrics
             - **Temperature R²:** ${{ steps.evaluate.outputs.r2 }}
@@ -123,11 +166,10 @@ Training completed at $(date -u +"%Y-%m-%d %H:%M UTC")
             This model has been automatically validated and deployed.
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Upload artifacts
-        if: always()
+      # Bước 10: Upload artifacts (để kiểm tra nếu có lỗi)
+      - name:  Upload artifacts
+        if: always()  # Luôn upload để debug
         uses: actions/upload-artifact@v4
         with:
           name: training-artifacts
@@ -138,29 +180,28 @@ Training completed at $(date -u +"%Y-%m-%d %H:%M UTC")
             data/*.csv
           retention-days: 30
       
-      - name: Summary
+      # Bước 11: Thông báo kết quả
+      - name:  Summary
         if: always()
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
-          ## Training Pipeline Summary
-          
-          | Step | Status |
-          |------|--------|
-          | Data Collection | ${{ steps.collect.outputs.status || 'skipped' }} |
-          | Preprocessing | ${{ steps.preprocess.outputs.status || 'skipped' }} |
-          | Model Training | ${{ steps.train.outputs.status || 'skipped' }} |
-          | Model Evaluation | ${{ steps.evaluate.outputs.status || 'skipped' }} |
-          
-          EOF
+          echo "##  Training Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Data Collection | ${{ steps.collect.outputs.status || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Preprocessing | ${{ steps.preprocess.outputs.status || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model Training | ${{ steps.train.outputs.status || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model Evaluation | ${{ steps.evaluate.outputs.status || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ steps.evaluate.outputs.status }}" = "pass" ]; then
-            cat >> $GITHUB_STEP_SUMMARY << 'EOF'
-          ###  Model Deployed Successfully!
-          
-          **Metrics:**
-          - R² Score: ${{ steps.evaluate.outputs.r2 }}
-          - MAE: ${{ steps.evaluate.outputs.mae }}°C
-          EOF
+            echo "###  Model Deployed Successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Metrics:**" >> $GITHUB_STEP_SUMMARY
+            echo "- R² Score: ${{ steps.evaluate.outputs.r2 }}" >> $GITHUB_STEP_SUMMARY
+            echo "- MAE: ${{ steps.evaluate.outputs.mae }}°C" >> $GITHUB_STEP_SUMMARY
           else
-            echo "### Training completed with issues" >> $GITHUB_STEP_SUMMARY
+            echo "###  Training completed with issues" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the logs for details." >> $GITHUB_STEP_SUMMARY
           fi
